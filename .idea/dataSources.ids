@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component name="dataSourceStorage">
+  <data-source source="LOCAL" name="MySQL - laboratorio3@192.168.1.107" uuid="9027f711-381a-4926-b509-7cdb544d031d">
+    <database-info product="MySQL" version="5.6.26" jdbc-version="4.0" driver-name="MySQL Connector Java" driver-version="mysql-connector-java-5.1.35 ( Revision: 5fb9c5849535c13917c2cf9baaece6ef9693ef27 )">
+      <extra-name-characters>#@</extra-name-characters>
+      <identifier-quote-string>`</identifier-quote-string>
+    </database-info>
+    <case-sensitivity plain-identifiers="lower" quoted-identifiers="lower"/>
+    <schema name="" catalog="laboratorio3"/>
+    <table name="edades" schema="" catalog="laboratorio3" type="TABLE">
+      <column name="id" sqlType="INT" precision="10" scale="0" nullable="false" jdbcType="4"/>
+      <column name="descripcion" sqlType="VARCHAR" precision="15" scale="0" nullable="false" jdbcType="12"/>
+      <primary-key name="PRIMARY" columns="id"/>
+    </table>
+    <table name="generos" schema="" catalog="laboratorio3" type="TABLE">
+      <column name="id" sqlType="INT" precision="10" scale="0" nullable="false" jdbcType="4" autoIncrement="true"/>
+      <column name="descripcion" sqlType="VARCHAR" precision="50" scale="0" nullable="false" jdbcType="12"/>
+      <primary-key name="PRIMARY" columns="id"/>
+    </table>
+    <table name="ocupaciones" schema="" catalog="laboratorio3" type="TABLE">
+      <column name="id" sqlType="INT" precision="10" scale="0" nullable="false" jdbcType="4"/>
+      <column name="descripcion" sqlType="VARCHAR" precision="50" scale="0" nullable="false" jdbcType="12"/>
+      <primary-key name="PRIMARY" columns="id"/>
+      <exported-key name="FK_OCUPACION_USUARIOS" table="usuarios" schema="" catalog="laboratorio3" columns="ocupacion"/>
+    </table>
+    <table name="usuarios" schema="" catalog="laboratorio3" type="TABLE">
+      <column name="id" sqlType="INT" precision="10" scale="0" nullable="false" jdbcType="4"/>
+      <column name="sexo" sqlType="CHAR" precision="1" scale="0" nullable="false" jdbcType="1"/>
+      <column name="edad" sqlType="INT" precision="10" scale="0" nullable="false" jdbcType="4"/>
+      <column name="ocupacion" sqlType="INT" precision="10" scale="0" nullable="false" jdbcType="4"/>
+      <primary-key name="PRIMARY" columns="id"/>
+      <foreign-key name="FK_OCUPACION_USUARIOS" columns="ocupacion" ref-table="ocupaciones" ref-schema="" ref-catalog="laboratorio3" ref-columns="id" update-rule="0" delete-rule="0" deferrability="2"/>
+    </table>
+  </data-source>
+</component>
