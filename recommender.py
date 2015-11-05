@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 import json
+import urllib
 import urllib2
 import MySQLdb
 import cherrypy
@@ -26,10 +27,10 @@ cherrypy.engine.subscribe('start_thread', connect)
 class Recommender(object):
     @cherrypy.expose
     def index(self):
-        c = cherrypy.thread_data.db.cursor()
-        c.execute('select * from info_usuarios')
-        res = c.fetchall()
-        c.close()
+        cursor = cherrypy.thread_data.db.cursor()
+        cursor.execute('SELECT * FROM info_usuarios ORDER BY nombre')
+        res = cursor.fetchall()
+        cursor.close()
         usuarios = []
         for i in res:
             usuarios.append({'id': i[0],
@@ -41,26 +42,91 @@ class Recommender(object):
     def calificar(self, user_id=None):
         if user_id:
             cherrypy.session['usuario_id'] = user_id
-            resultado = json.load(urllib2.urlopen(
-                "https://api.themoviedb.org/3/search/movie?api_key=150d5e95df95be2e0c68094bc9d6241f&query=toy+story"))
-            descripcion = resultado[u'results'][0][u'overview']
-            link_imagen = 'https://image.tmdb.org/t/p/w320' + resultado[u'results'][0][u'backdrop_path']
-            peliculas = [{'movie_id': 1,
-                          'nombre': u'Toy Story',
-                          'generos': [u'Animación', u'Comedia'],
-                          'desc': descripcion,
-                          'link_img': link_imagen}] * 10
+        if 'usuario_id' in cherrypy.session:
+            cursor = cherrypy.thread_data.db.cursor()
+            cursor.execute('SELECT ratings.pelicula_id, peliculas.nombre, COUNT(*) FROM ratings '
+                           'JOIN peliculas ON ratings.pelicula_id = peliculas.id '
+                           'GROUP BY 1 ORDER BY 3 DESC LIMIT 20')
+            res = cursor.fetchall()
+            peliculas = []
+            for i in res:
+                pelicula = {'movie_id': int(i[0]), 'nombre': unicode(i[1], 'latin-1')}
+                cursor.execute('SELECT descripcion FROM generos JOIN peliculas_generos '
+                               'ON generos.id = peliculas_generos.genero_id '
+                               'WHERE peliculas_generos.pelicula_id = %s' % i[0])
+                res = cursor.fetchall()
+                generos = []
+                for gen in res:
+                    generos.append(unicode(gen[0], 'latin-1'))
+                pelicula['generos'] = generos
+                nombre_url = urllib.quote_plus(i[1])
+                resultado = json.load(urllib2.urlopen(
+                    "https://api.themoviedb.org/3/search/movie?api_key=150d5e95df95be2e0c68094bc9d6241f&query="
+                    + nombre_url))
+                descripcion = resultado[u'results'][0][u'overview']
+                link_imagen = 'https://image.tmdb.org/t/p/w320' + resultado[u'results'][0][u'backdrop_path']
+                pelicula['desc'] = descripcion
+                pelicula['link_img'] = link_imagen
+                peliculas.append(pelicula)
             template = JINJA_ENVIRONMENT.get_template('views/calificar.html')
             return template.render(pelis=peliculas)
         else:
             raise cherrypy.HTTPRedirect("/")
 
+    @cherrypy.expose
+    def register(self, nombre=None, sexo=None, edad=None, ocupacion=None):
+        method = cherrypy.request.method.upper()
+        if method == 'GET':
+            template = JINJA_ENVIRONMENT.get_template('views/register.html')
+            return template.render()
+        elif method == 'POST':
+            db = cherrypy.thread_data.db
+            cursor = db.cursor()
+            try:
+                cursor.execute("""INSERT INTO usuarios (sexo, edad, ocupacion) VALUES (%s, %s, %s)""",
+                               (sexo, edad, ocupacion))
+                cursor.execute("""SELECT id FROM usuarios ORDER BY id DESC""")
+                usuario_id = cursor.fetchone()[0]
+                cursor.execute("""INSERT INTO info_usuarios (usuario_id, nombre) VALUES (%s, %s)""",
+                               (usuario_id, nombre))
+                db.commit()
+            except MySQLdb.Error as err:
+                print(err)
+                db.rollback()
+                raise cherrypy.HTTPError(500)
+            cursor.close()
+            raise cherrypy.HTTPRedirect("/")
+        else:
+            raise cherrypy.HTTPError(405)
+
 
 class Api(object):
     @cherrypy.expose
     def post_rating(self, movie_id, rating):
-        # TODO agregar rating a la DB
-        print(movie_id, rating)
+        if 'usuario_id' in cherrypy.session:
+            db = cherrypy.thread_data.db
+            cursor = db.cursor()
+            user_id = cherrypy.session['usuario_id']
+            try:
+                cursor.execute("""SELECT * FROM ratings WHERE usuario_id = %s AND pelicula_id = %s""",
+                               (user_id, movie_id))
+                r = cursor.fetchone()
+                if not r:
+                    cursor.execute("""INSERT INTO ratings (usuario_id, pelicula_id, rating) VALUES (%s, %s, %s)""",
+                                   (user_id, movie_id, rating))
+                    db.commit()
+                else:
+                    cursor.execute("""UPDATE ratings SET rating = %s, fecha_hora = NOW()
+                                   WHERE usuario_id = %s AND pelicula_id = %s""",
+                                   (rating, user_id, movie_id))
+                    db.commit()
+            except MySQLdb.Error as err:
+                print(err)
+                db.rollback()
+                raise cherrypy.HTTPError(500)
+            cursor.close()
+        else:
+            raise cherrypy.HTTPError(403)
 
 
 if __name__ == '__main__':

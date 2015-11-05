@@ -9,7 +9,7 @@
     <meta name="author" content="">
     <link rel="icon" href="../assets/favicon.ico">
 
-    <title>Signin Template for Bootstrap</title>
+    <title>Iniciar sesión - RecommendUM</title>
 
     <!-- Bootstrap core CSS -->
     <link href="../assets/css/bootstrap.min.css" rel="stylesheet">
@@ -28,7 +28,7 @@
 
     <div class="container">
       <form class="form-signin" action="calificar" method="POST">
-        <h2 class="form-signin-heading">Please sign in</h2>
+        <h1 class="form-signin-heading">Inicie sesión</h1>
           <select class="form-control" name="user_id">
             {% for user in users %}
               <option value="{{ user.id }}">{{ user.nombre }}</option>
@@ -37,7 +37,13 @@
           <br>
           <button class="btn btn-lg btn-primary btn-block" type="submit">Iniciar sesión</button>
       </form>
-      <button class="btn btn-lg btn-info btn-block" style="max-width: 300px; margin: 0 auto;">Registrarse</button>
+      <button id="register" class="btn btn-lg btn-info btn-block">Registrarse</button>
     </div> <!-- /container -->
+
+    <script type="text/javascript">
+        document.getElementById("register").onclick = function () {
+            location.href = "register";
+        };
+    </script>
   </body>
 </html>

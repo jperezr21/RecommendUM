@@ -28,3 +28,7 @@ body {
 .form-signin .form-control:focus {
   z-index: 2;
 }
+#register {
+  max-width: 300px;
+  margin: 0 auto;
+}
