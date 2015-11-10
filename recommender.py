@@ -1,12 +1,12 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 import json
-import urllib
 import urllib2
 import MySQLdb
 import cherrypy
 import jinja2
 import os
+from algoritmos.vecinos import get_similar_users
 
 JINJA_ENVIRONMENT = jinja2.Environment(
     loader=jinja2.FileSystemLoader(os.path.dirname(__file__)),
@@ -16,7 +16,7 @@ JINJA_ENVIRONMENT = jinja2.Environment(
 
 def connect(thread_index):
     # Create a connection and store it in the current thread
-    cherrypy.thread_data.db = MySQLdb.connect(host='192.168.1.107', port=3306, user='prueba',
+    cherrypy.thread_data.db = MySQLdb.connect(host='10.252.254.122', port=3306, user='prueba',
                                               passwd='prueba', db='laboratorio3',
                                               unix_socket='/opt/bitnami/mysql/tmp/mysql.sock')
 
@@ -83,13 +83,21 @@ class Recommender(object):
             cursor.execute('SELECT ratings.pelicula_id, peliculas.imdb_id, peliculas.tmdb_id, peliculas.nombre, '
                            'peliculas.descripcion, peliculas.anio, peliculas.backdrop_path, '
                            '((COUNT(*) - 12)/25) / POW(((NOW() - AVG(ratings.fecha_hora))/54423110737), 1.8) '
-                           ' FROM ratings JOIN peliculas ON ratings.pelicula_id = peliculas.id '
+                           'FROM ratings JOIN peliculas ON ratings.pelicula_id = peliculas.id '
                            'GROUP BY 1 ORDER BY 8 DESC LIMIT 99')
             res = cursor.fetchall()
             peliculas = []
             for i in res:
                 pelicula = {'movie_id': int(i[0])}
 
+                # VOY A BUSCAR SI EL USUARIO YA CALIFICO ESTA PELICULA
+                cursor.execute('SELECT ratings.rating FROM ratings WHERE ratings.pelicula_id = %s AND '
+                               'ratings.usuario_id = %s', (int(i[0]), cherrypy.session['usuario_id']))
+                res = cursor.fetchone()
+                if res:
+                    pelicula['rating'] = res[0]
+
+                """
                 # SI NO TENGO DATOS DE TMBD
                 if i[3] is None and i[4] is None and i[5] is None and i[6] is None:
                     try:
@@ -102,6 +110,8 @@ class Recommender(object):
                         print(err)
                         db.rollback()
                         raise cherrypy.HTTPError(500)
+                """
+
                 # TRAIGO LOS GENEROS
                 cursor.execute('SELECT descripcion FROM generos JOIN peliculas_generos '
                                'ON generos.id = peliculas_generos.genero_id '
@@ -121,8 +131,33 @@ class Recommender(object):
                 if res[2]:
                     pelicula['link_img'] = u'https://image.tmdb.org/t/p/w320' + unicode(res[2], 'latin-1')
                 peliculas.append(pelicula)
+            cursor.close()
             template = JINJA_ENVIRONMENT.get_template('views/calificar.html')
             return template.render(pelis=peliculas)
+        else:
+            raise cherrypy.HTTPRedirect("/")
+
+    @cherrypy.expose
+    def recomendar(self):
+        if 'usuario_id' in cherrypy.session:
+            usuario = cherrypy.session['usuario_id']
+            db = cherrypy.thread_data.db
+            cursor = db.cursor()
+            cursor.execute('SELECT pelicula_id, rating FROM ratings WHERE usuario_id = %s' % usuario)
+            res = cursor.fetchall()
+            user = (usuario, list(res))
+            cursor.execute('SELECT DISTINCT usuario_id FROM ratings WHERE pelicula_id IN '
+                           '(SELECT DISTINCT pelicula_id FROM ratings WHERE usuario_id = %s)' % usuario)
+            res = cursor.fetchall()
+            usuarios = [(u1[0], []) for u1 in res]
+            for u2 in usuarios:
+                cursor.execute('SELECT pelicula_id, rating FROM ratings WHERE usuario_id = %s AND pelicula_id IN '
+                               '(SELECT DISTINCT pelicula_id FROM ratings WHERE usuario_id = %s)', (u2[0], usuario))
+                res = cursor.fetchall()
+                for i in res:
+                    u2[1].append(i)
+            vecinos = get_similar_users(usuarios, user)
+            return str(sorted(vecinos, key=lambda x: x[1], reverse=True)[:10])
         else:
             raise cherrypy.HTTPRedirect("/")
 

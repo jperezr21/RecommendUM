@@ -65,7 +65,7 @@
                             </div>
                             <div class="ratings">
                                 <h4 style="margin-bottom: 0">Calificar:</h4>
-                                <input id="rating-input1" type="number" data-movie-id="{{ peli.movie_id }}" />
+                                <input id="rating-input1" type="number" {% if peli.rating %}value={{ peli.rating }}{% endif %} data-movie-id="{{ peli.movie_id }}" />
                             </div>
                         </div>
                     </div>
