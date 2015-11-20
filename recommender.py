@@ -16,9 +16,8 @@ JINJA_ENVIRONMENT = jinja2.Environment(
 
 def connect(thread_index):
     # Create a connection and store it in the current thread
-    cherrypy.thread_data.db = MySQLdb.connect(host='10.252.254.122', port=3306, user='prueba',
-                                              passwd='prueba', db='laboratorio3',
-                                              unix_socket='/opt/bitnami/mysql/tmp/mysql.sock')
+    cherrypy.thread_data.db = MySQLdb.connect(host='127.0.0.1', port=3306, user='prueba',
+                                              passwd='prueba', db='recommendum')
 
 # Tell CherryPy to call "connect" for each thread, when it starts up
 cherrypy.engine.subscribe('start_thread', connect)
